@@ -100,8 +100,12 @@ def load_metadata(path: Path, mode: str) -> dict[str, Any]:
             raise ValueError("los_sign must be toward_satellite or away_from_satellite")
         if metadata["incidence_definition"] != "from_vertical":
             raise ValueError("Only incidence_definition='from_vertical' is implemented")
-        if metadata["heading_convention"] != "clockwise_from_north":
-            raise ValueError("Only heading_convention='clockwise_from_north' is implemented")
+        expected_heading = "satellite_flight_heading_clockwise_from_north"
+        if metadata["heading_convention"] != expected_heading:
+            raise ValueError(
+                f"Only heading_convention={expected_heading!r} is implemented; "
+                "a radar look azimuth is not interchangeable with flight heading"
+            )
         if metadata["angle_units"] != "degrees":
             raise ValueError("Only angle_units='degrees' is implemented")
     return metadata
@@ -195,6 +199,13 @@ def main() -> None:
             required |= SIGMA_COLUMNS
         header = require_columns(args.stations, required)
         metadata = load_metadata(args.metadata, "los")
+        if args.require_rate_uncertainties and metadata.get(
+            "los_uncertainty_model"
+        ) != "diagonal_enu_rate_covariance_zero_cross_terms":
+            raise ValueError(
+                "Rate-uncertainty projection requires metadata "
+                "los_uncertainty_model='diagonal_enu_rate_covariance_zero_cross_terms'"
+            )
         audit_coregistration([args.los, args.incidence, args.heading])
         rasters = [raster_summary(path) for path in (args.los, args.incidence, args.heading)]
         station_file = args.stations

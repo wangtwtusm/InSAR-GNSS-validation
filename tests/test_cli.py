@@ -73,10 +73,13 @@ def los_metadata() -> dict[str, Any]:
         {
             "los_sign": "toward_satellite",
             "incidence_definition": "from_vertical",
-            "heading_convention": "clockwise_from_north",
+            "heading_convention": "satellite_flight_heading_clockwise_from_north",
             "angle_units": "degrees",
             "insar_product_stage": "synthetic-test-stage",
             "uncertainty_semantics": "one_standard_deviation_rate_uncertainty",
+            "los_uncertainty_model": (
+                "diagonal_enu_rate_covariance_zero_cross_terms"
+            ),
         }
     )
     return result
@@ -284,6 +287,17 @@ class TestRasterValidationCLI(unittest.TestCase):
             )
             for entry in provenance["inputs"].values():
                 self.assertRegex(entry["sha256"], r"^[0-9a-f]{64}$")
+            self.assertEqual(
+                provenance["los_projection"]["heading_convention"],
+                "satellite_flight_heading_clockwise_from_north",
+            )
+            self.assertEqual(
+                provenance["los_projection"]["uncertainty_model"],
+                "diagonal_enu_rate_covariance_zero_cross_terms",
+            )
+            self.assertFalse(
+                provenance["los_projection"]["enu_cross_covariances_used"]
+            )
 
     def test_vlm_strict_nodata_qc_and_high_sigma_exclusions(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -396,6 +410,96 @@ class TestRasterValidationCLI(unittest.TestCase):
                 row["station_id"] for row in read_csv(output / "exclusions.csv")
             }
             self.assertEqual(exclusion_ids, {"NODATA", "HIGH_SIGMA", "BAD_QC"})
+
+    def test_sigma_qc_precedes_physical_site_deduplication(self) -> None:
+        """A rejected long record must not displace a qualified co-site record."""
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            stations = root / "stations.csv"
+            metadata = root / "metadata.json"
+            vlm = root / "vlm.tif"
+            output = root / "vlm-output"
+            fields = [*self.station_fields, "duration_years"]
+            write_csv(
+                stations,
+                fields,
+                [
+                    {
+                        "station_id": "QUALIFIED",
+                        "longitude_deg": -123.9500,
+                        "latitude_deg": 47.9500,
+                        "east_mm_per_year": 0.0,
+                        "north_mm_per_year": 0.0,
+                        "up_mm_per_year": 1.0,
+                        "sigma_east_mm_per_year": 0.2,
+                        "sigma_north_mm_per_year": 0.3,
+                        "sigma_up_mm_per_year": 0.4,
+                        "duration_years": 15.0,
+                    },
+                    {
+                        "station_id": "LONG_HIGH_SIGMA",
+                        "longitude_deg": -123.9502,
+                        "latitude_deg": 47.9502,
+                        "east_mm_per_year": 0.0,
+                        "north_mm_per_year": 0.0,
+                        "up_mm_per_year": 1.0,
+                        "sigma_east_mm_per_year": 0.2,
+                        "sigma_north_mm_per_year": 0.3,
+                        "sigma_up_mm_per_year": 3.0,
+                        "duration_years": 25.0,
+                    },
+                    {
+                        "station_id": "CONTROL",
+                        "longitude_deg": -123.8500,
+                        "latitude_deg": 47.9500,
+                        "east_mm_per_year": 0.0,
+                        "north_mm_per_year": 0.0,
+                        "up_mm_per_year": 2.0,
+                        "sigma_east_mm_per_year": 0.2,
+                        "sigma_north_mm_per_year": 0.3,
+                        "sigma_up_mm_per_year": 0.4,
+                        "duration_years": 16.0,
+                    },
+                ],
+            )
+            write_json(metadata, vlm_metadata())
+            self.write_raster(vlm, [[1.0, 2.0], [3.0, 4.0]])
+
+            run_cli(
+                VALIDATE,
+                "vlm",
+                "--stations",
+                stations,
+                "--metadata",
+                metadata,
+                "--vlm",
+                vlm,
+                "--max-component-sigma",
+                2.0,
+                "--deduplicate-within-m",
+                100.0,
+                "--output-dir",
+                output,
+            )
+            by_id = {
+                row["station_id"]: row
+                for row in read_csv(output / "station_values.csv")
+            }
+            self.assertTrue(as_bool(by_id["QUALIFIED"]["include_in_metrics"]))
+            self.assertNotIn(
+                "nonrepresentative_physical_site_record",
+                by_id["QUALIFIED"]["selection_reason"],
+            )
+            self.assertFalse(
+                as_bool(by_id["LONG_HIGH_SIGMA"]["include_in_metrics"])
+            )
+            self.assertIn(
+                "component_rate_uncertainty_above_threshold",
+                by_id["LONG_HIGH_SIGMA"]["selection_reason"],
+            )
+            self.assertTrue(as_bool(by_id["CONTROL"]["include_in_metrics"]))
+            self.assertEqual(int(read_csv(output / "metrics.csv")[0]["n"]), 2)
 
 
 class TestCrossValidationCLI(unittest.TestCase):

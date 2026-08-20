@@ -26,12 +26,17 @@ Unless the source requires another convention, normalize to the following and re
 | Up velocity or VLM | Positive upward, `mm yr^-1` |
 | Displacement or residual scatter | `mm`; never label it as a rate |
 | Incidence angle | Degrees from vertical unless explicitly declared otherwise |
-| Heading angle | Degrees clockwise from north unless explicitly declared otherwise |
+| Heading angle | Satellite flight heading in degrees clockwise from geographic north; never substitute radar look azimuth |
 | LOS velocity | `mm yr^-1`; declare whether positive is toward or away from the radar |
 | Residual | InSAR minus GNSS by default; record the sign definition in every result table |
 | Rate uncertainty | Published or estimated one-standard-deviation value in `mm yr^-1` |
 
 Do not infer an angle convention from a filename. Verify it from metadata, code, or a known-vector projection test. Sample LOS, incidence, and heading from the same raster cell unless the product documentation explicitly defines a different geometry grid.
+
+When only component-wise ENU rate uncertainties are available for LOS
+projection, declare `los_uncertainty_model` as
+`diagonal_enu_rate_covariance_zero_cross_terms`. This is an explicit modeling
+assumption, not evidence that the ENU cross-covariances are physically zero.
 
 ## Time and Frame Metadata
 

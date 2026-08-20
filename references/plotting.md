@@ -146,6 +146,10 @@ cross-figure comparability; otherwise the command uses the configured robust
 absolute-value percentile. `--scatter-range MIN MAX` fixes the same range on
 both scatter axes.
 
+The default water fill deliberately masks deformation pixels over mapped
+water. Use `--water-fill none` only for a documented diagnostic raster that is
+intended to remain visible offshore; the coastline is still drawn.
+
 Map circles encode GNSS rate uncertainty as radius. The option
 `--uncertainty-radius-scale` is centimetres of circle radius per
 millimetre-per-year uncertainty; the script doubles that value for GMT's

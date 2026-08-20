@@ -25,6 +25,7 @@ The scripts are portable reference implementations. Inspect `--help`, use explic
 - Treat raster masks and NoData metadata as invalid; do not assume that a numerical zero is NoData.
 - Define every residual as `InSAR − GNSS`. Retain the mean residual in headline bias and raw RMS. Report mean-removed RMS only as `cRMS`, a spatial-scatter diagnostic.
 - Derive exclusions from declared rules. Never hard-code a station name, expected sample count, study region, product path, or validation result.
+- Audit any supplied `used-in-fitting` status and fitting-site distance against a frozen fitting-station list or documented crosswalk; those columns are assertions, not self-validating evidence.
 - Keep sites used to fit an InSAR correction separate from independent sites. Comparisons with fitting stations are internal consistency, not independent accuracy.
 - Preserve the full ENU vector when projecting to LOS. Do not assume north motion is zero unless the user explicitly requests and labels that sensitivity test.
 - Record all selection thresholds, exclusions, random seeds, software versions, hashes, sample counts, and product metadata in provenance output.

@@ -226,8 +226,18 @@ def station_selection(frame: pd.DataFrame, args: argparse.Namespace) -> tuple[np
             "invalid_rate_uncertainty",
         )
 
-    # Physical-site deduplication precedes the formal sigma threshold. The
-    # representative is chosen by record length, then sigma, then ID.
+    if args.max_component_sigma is not None:
+        add_reason(
+            reasons,
+            ~np.isfinite(max_sigma) | (max_sigma > args.max_component_sigma),
+            "component_rate_uncertainty_above_threshold",
+        )
+
+    # De-duplicate only records that pass the previously declared identity,
+    # duration, uncertainty, and distance rules.  This prevents a rejected
+    # high-uncertainty solution from displacing a qualified solution at the
+    # same physical site.  Representatives are chosen by record length, then
+    # component uncertainty, then station ID.
     if args.deduplicate_within_m is not None:
         if "duration_years" not in frame.columns or not has_sigmas:
             raise ValueError(
@@ -253,13 +263,6 @@ def station_selection(frame: pd.DataFrame, args: argparse.Namespace) -> tuple[np
                 if int(source_index) not in representatives:
                     duplicate_mask[int(source_index)] = True
             add_reason(reasons, duplicate_mask, "nonrepresentative_physical_site_record")
-
-    if args.max_component_sigma is not None:
-        add_reason(
-            reasons,
-            ~np.isfinite(max_sigma) | (max_sigma > args.max_component_sigma),
-            "component_rate_uncertainty_above_threshold",
-        )
 
     include = np.asarray([not value for value in reasons], dtype=bool)
     return include, [";".join(value) if value else "eligible" for value in reasons]
@@ -439,6 +442,14 @@ def validate_los(args: argparse.Namespace) -> None:
     require_columns(frame, BASE_COLUMNS, args.stations.name)
     require_unique_station_ids(frame)
     has_sigmas = metadata_and_sigma_guard(frame, metadata)
+    if has_sigmas and metadata.get("los_uncertainty_model") != (
+        "diagonal_enu_rate_covariance_zero_cross_terms"
+    ):
+        raise ValueError(
+            "LOS uncertainty projection requires metadata "
+            "los_uncertainty_model='diagonal_enu_rate_covariance_zero_cross_terms'; "
+            "the current implementation does not consume ENU cross-covariances"
+        )
     include, reasons = station_selection(frame, args)
 
     audit_coregistration([args.los, args.incidence, args.heading])
@@ -548,6 +559,21 @@ def validate_los(args: argparse.Namespace) -> None:
         args=args,
         counts={"input_rows": len(result), "formal_rows": len(formal)},
     )
+    record["los_projection"] = {
+        "equation": (
+            "v_los=-cos(h)*sin(i)*E+sin(h)*sin(i)*N+cos(i)*U "
+            "for toward_satellite; reverse all coefficients for away_from_satellite"
+        ),
+        "incidence_definition": metadata["incidence_definition"],
+        "heading_convention": metadata["heading_convention"],
+        "positive_direction": metadata["los_sign"],
+        "uncertainty_model": (
+            "diagonal_enu_rate_covariance_zero_cross_terms"
+            if has_sigmas
+            else "not_computed"
+        ),
+        "enu_cross_covariances_used": False,
+    }
     save_comparison(
         result,
         metrics,

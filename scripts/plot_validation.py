@@ -556,13 +556,19 @@ def read_raster_grid(path: Path, region: Sequence[float], deps: Dependencies) ->
     if y[0] > y[-1]:
         y = y[::-1]
         values = values[::-1, :]
-    return deps.xarray.DataArray(
+    grid = deps.xarray.DataArray(
         values,
         coords={"lat": y, "lon": x},
         dims=("lat", "lon"),
         name="insar_velocity",
         attrs={"units": "mm yr-1"},
     )
+    # These coordinates are pixel centers derived from the rasterio affine
+    # transform.  Make the registration and geographic type explicit so GMT
+    # does not guess gridline registration or shift the image by half a cell.
+    grid.gmt.gtype = 1
+    grid.gmt.registration = 1
+    return grid
 
 
 def parse_region(values: Sequence[float] | None, fallback: Sequence[float]) -> list[float]:
@@ -619,12 +625,14 @@ def map_header(figure: Any, text: str) -> None:
 
 def plot_coast_after_raster(figure: Any, args: argparse.Namespace) -> None:
     try:
-        figure.coast(
-            water=OCEAN_COLOR,
-            shorelines="0.65p,black",
-            resolution=args.coast_resolution,
-            area_thresh=args.coast_area_threshold,
-        )
+        coast_options = {
+            "shorelines": "0.65p,black",
+            "resolution": args.coast_resolution,
+            "area_thresh": args.coast_area_threshold,
+        }
+        if args.water_fill.lower() != "none":
+            coast_options["water"] = args.water_fill
+        figure.coast(**coast_options)
     except Exception as exc:
         raise DependencyError(
             "GMT could not draw the requested coastline. Confirm that the GSHHG "
@@ -1424,6 +1432,14 @@ def add_common_map_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--uncertainty-radius-scale", type=float, default=0.055, help="Circle radius in cm per mm/yr of GNSS rate uncertainty")
     parser.add_argument("--coast-resolution", choices=("c", "l", "i", "h", "f"), default="f", help="GSHHG coastline resolution (default: f)")
     parser.add_argument("--coast-area-threshold", type=float, default=0.0, help="Minimum coastline polygon area in km^2")
+    parser.add_argument(
+        "--water-fill",
+        default=OCEAN_COLOR,
+        help=(
+            "GMT color used to fill water after the raster (default: light blue); "
+            "use 'none' for diagnostic rasters intentionally extending offshore"
+        ),
+    )
     parser.add_argument("--dpi", type=int, default=300)
     parser.add_argument("--overwrite", action="store_true", help="Allow replacement of an existing output figure")
 

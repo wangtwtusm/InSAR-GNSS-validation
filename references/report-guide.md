@@ -50,6 +50,12 @@ Present group-aware leave-one-site-out validation first because it directly addr
 
 Introduce the independent product and estimator, cross-match and duration screen, realization and time-window differences, pre-specified uncertainty exclusions, independent LOS results, and independent VLM results. Include a strict sensitivity sample when interpolation or extrapolation support differs.
 
+Verify non-use and fitting-site distances against an archived fitting-station
+list or crosswalk. If the analysis only receives precomputed status or distance
+columns, identify them as provider assertions rather than independently
+recomputed facts. When station-specific start and end epochs are unavailable,
+state explicitly that temporal overlap could not be audited station by station.
+
 ### Focused Local Analysis
 
 Make this optional. Include it only when the user requests it or the available sample can answer a defined local question. Report sparse local evidence descriptively and distinguish gradient direction from amplitude and cause.

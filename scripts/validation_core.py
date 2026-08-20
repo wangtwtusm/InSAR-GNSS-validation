@@ -25,7 +25,7 @@ from typing import Hashable, Iterable, Mapping, Sequence
 import numpy as np
 
 
-HEADING_CONVENTION = "satellite_heading_clockwise_from_north"
+HEADING_CONVENTION = "satellite_flight_heading_clockwise_from_north"
 POSITIVE_DIRECTIONS = frozenset({"toward_satellite", "away_from_satellite"})
 QUADRATIC_TERM_NAMES = ("x", "y", "1", "xy", "x2", "y2")
 
@@ -134,7 +134,7 @@ def los_unit_vector(
     heading_deg
         Satellite flight heading in degrees, clockwise from geographic north.
     heading_convention
-        Must equal ``"satellite_heading_clockwise_from_north"``.  The explicit
+        Must equal ``"satellite_flight_heading_clockwise_from_north"``.  The explicit
         argument is intentional so callers cannot silently confuse flight
         heading with look azimuth.
     positive_direction

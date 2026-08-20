@@ -1,0 +1,4 @@
+interface:
+  display_name: "InSAR-GNSS validation"
+  short_description: "Validate InSAR LOS and VLM with GNSS"
+  default_prompt: "Use $insar-gnss-validation to assess InSAR LOS or VLM accuracy against GNSS and produce auditable plots and a report."

@@ -41,7 +41,8 @@ python scripts/preflight_inputs.py los \
   --stations stations.csv \
   --los final_los.tif \
   --incidence incidence.tif \
-  --heading heading.tif
+  --heading heading.tif \
+  --metadata metadata.json
 ```
 
 Stop for clarification when units, frame, sign, angle meaning, or coordinate CRS are missing. Do not auto-download data or install dependencies.
@@ -91,7 +92,10 @@ Run before delivery:
 
 ```bash
 python scripts/run_self_test.py
-python /path/to/skill-creator/scripts/quick_validate.py .
 ```
+
+When maintaining the skill package in an environment with `skill-creator`,
+also run its `scripts/quick_validate.py` against this directory. That optional
+packaging check is not required to use the standalone numerical commands.
 
 Also inspect every generated figure and verify that the numerical annotations equal the saved raw metrics. A passing schema test does not resolve ambiguous geodetic conventions.
